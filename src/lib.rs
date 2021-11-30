@@ -1,24 +1,12 @@
 use std::collections::HashMap;
-
-fn main() {
-    println!("Hello, world!");
-
-    let mut and = Gate::new(
-        vec![("a", false), ("b", false)],
-        vec![false, false, false, true],
-        "and",
-    )
-    .unwrap();
-}
-
-trait Chip {
+pub trait Chip {
     fn eval(&self) -> Vec<bool>;
     fn get_name(&self) -> String;
     fn set_input(&mut self, input: &str, value: bool) -> Result<(), String>;
     // fn get_output(&self, output: &str) -> Result<bool, String>;
 }
 
-struct Circuit {
+pub struct Circuit {
     comput_graphs: Vec<Vec<String>>,
     components: HashMap<String, Box<dyn Chip>>,
     inputs: HashMap<String, bool>,
@@ -27,20 +15,28 @@ struct Circuit {
     name: String,
 }
 
-struct Gate {
+pub struct Gate {
     inputs: Vec<(String, bool)>,
     truth_table: Vec<bool>,
     name: String,
 }
 
-impl Chip for Gate {
-    fn eval(&self) -> Vec<bool> {
-        Vec::new()
+impl Gate {
+    pub fn eval(&self) -> bool {
+        let index = bool_algebra::bool_to_u32(
+            self.inputs
+                .iter()
+                .cloned()
+                .rev()
+                .map(|(_, b)| -> bool { b })
+                .collect(),
+        );
+        self.truth_table[index as usize]
     }
-    fn get_name(&self) -> String {
+    pub fn get_name(&self) -> String {
         self.name.clone()
     }
-    fn set_input(&mut self, input: &str, value: bool) -> Result<(), String> {
+    pub fn set_input(&mut self, input: &str, value: bool) -> Result<(), String> {
         let mut found = false;
         for i in 0..self.inputs.len() {
             if input == self.inputs[i].0 {
@@ -53,11 +49,10 @@ impl Chip for Gate {
         }
         Ok(())
     }
-    
 }
 
 impl Gate {
-    fn new(inputs: Vec<(&str, bool)>, truth_table: Vec<bool>, name: &str) -> Result<Self, String> {
+    pub fn new(inputs: Vec<&str>, truth_table: Vec<bool>, name: &str) -> Result<Self, String> {
         if 2_usize.pow(inputs.len() as u32) != truth_table.len() {
             return Err(format!(
                 "incorect size of truth_table expected {} but got {}",
@@ -71,7 +66,7 @@ impl Gate {
             inputs: inputs
                 .iter()
                 .cloned()
-                .map(|(s, b)| -> (String, bool) { (s.to_string(), b) })
+                .map(|s| -> (String, bool) { (s.to_string(), false) })
                 .collect(),
             name: name.to_string(),
         })
