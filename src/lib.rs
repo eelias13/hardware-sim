@@ -1,74 +1,70 @@
-use std::collections::HashMap;
-pub trait Chip {
-    fn eval(&self) -> Vec<bool>;
-    fn get_name(&self) -> String;
-    fn set_input(&mut self, input: &str, value: bool) -> Result<(), String>;
-    // fn get_output(&self, output: &str) -> Result<bool, String>;
+use bool_algebra::bool_to_u32;
+use either::Either;
+
+pub struct Error {
+    msg: String,
 }
 
-pub struct Circuit {
-    comput_graphs: Vec<Vec<String>>,
-    components: HashMap<String, Box<dyn Chip>>,
-    inputs: HashMap<String, bool>,
-    outputs: Vec<String>,
-    values: Vec<bool>,
-    name: String,
-}
-
-pub struct Gate {
-    inputs: Vec<(String, bool)>,
-    truth_table: Vec<bool>,
-    name: String,
-}
-
-impl Gate {
-    pub fn eval(&self) -> bool {
-        let index = bool_algebra::bool_to_u32(
-            self.inputs
-                .iter()
-                .cloned()
-                .rev()
-                .map(|(_, b)| -> bool { b })
-                .collect(),
-        );
-        self.truth_table[index as usize]
+impl Error {
+    fn msg(msg: &str) -> Self {
+        Self {
+            msg: msg.to_string(),
+        }
     }
-    pub fn get_name(&self) -> String {
-        self.name.clone()
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LookupTable {
+    table: Vec<bool>,
+    in_values: Vec<bool>,
+    in_names: Vec<String>,
+    out_name: String,
+}
+
+impl LookupTable {
+    pub fn new(
+        table: Vec<bool>,
+        in_values: Vec<bool>,
+        in_names: Vec<String>,
+        out_name: String,
+    ) -> Self {
+        Self {
+            table,
+            in_values,
+            in_names,
+            out_name,
+        }
     }
-    pub fn set_input(&mut self, input: &str, value: bool) -> Result<(), String> {
-        let mut found = false;
-        for i in 0..self.inputs.len() {
-            if input == self.inputs[i].0 {
-                found = true;
-                self.inputs[i].1 = value;
+
+    fn set(&mut self, name: &str, value: bool) -> Result<(), Error> {
+        for (i, in_name) in self.in_names.iter().enumerate() {
+            if in_name == name {
+                self.in_values[i] = value;
+                return Ok(());
             }
         }
-        if !found {
-            return Err(format!("input {} not found in gate {}", input, self.name));
-        }
-        Ok(())
+        todo!();
+        return Err(Error::msg(""));
+    }
+
+    fn get(&self) -> bool {
+        let index = bool_to_u32(self.in_values.clone());
+        self.table[index as usize]
+    }
+
+    fn output(&self) -> String {
+        self.out_name.clone()
     }
 }
 
-impl Gate {
-    pub fn new(inputs: Vec<&str>, truth_table: Vec<bool>, name: &str) -> Result<Self, String> {
-        if 2_usize.pow(inputs.len() as u32) != truth_table.len() {
-            return Err(format!(
-                "incorect size of truth_table expected {} but got {}",
-                2_usize.pow(inputs.len() as u32),
-                truth_table.len()
-            ));
-        }
-
-        Ok(Self {
-            truth_table,
-            inputs: inputs
-                .iter()
-                .cloned()
-                .map(|s| -> (String, bool) { (s.to_string(), false) })
-                .collect(),
-            name: name.to_string(),
-        })
-    }
+trait Component  {
+    
 }
+
+#[derive(Debug, Clone, PartialEq)]
+struct Entry {
+    viseted: u8,
+   // component: dyn Component,
+}
+
+struct Circuit {}

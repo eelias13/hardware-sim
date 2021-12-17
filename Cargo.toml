@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 bool-algebra = { git = "https://github.com/eeli1/bool-algebra", version = "0.1.0" }
+either = "1.6.1"
