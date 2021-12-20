@@ -59,7 +59,7 @@ impl Component for LookupTable {
         return Err(Error::msg(""));
     }
 
-    fn get(&self, out_names: &str) -> Result<bool, Error> {
+    fn get(&mut self, out_names: &str) -> Result<bool, Error> {
         let index = bool_to_u32(self.in_values.clone());
         // TODO check name and index
         Ok(self.table[index as usize])
@@ -75,7 +75,7 @@ impl Component for LookupTable {
 
 trait Component {
     fn set(&mut self, in_names: &str, value: bool) -> Result<(), Error>;
-    fn get(&self, out_names: &str) -> Result<bool, Error>;
+    fn get(&mut self, out_names: &str) -> Result<bool, Error>;
     fn in_names(&self) -> Vec<String>;
     fn out_names(&self) -> Vec<String>;
     fn name(&self) -> String;
@@ -88,6 +88,7 @@ trait IODevice {
     fn out_names(&self) -> Vec<String>;
 }
 
+#[derive(Debug, Clone, PartialEq)]
 struct InOut {
     name: String,
     viseted: u8,
@@ -134,17 +135,16 @@ impl IODevice for InOut {
     }
 }
 
-// #[derive(Debug, Clone, PartialEq)]
-struct Entry<'a> {
+struct Entry {
     viseted: u8,
-    component: &'a mut dyn Component,
+    component: Box<dyn Component>,
     in_map: HashMap<String, String>,
     out_map: HashMap<String, String>,
 }
 
-impl<'a> Entry<'a> {
+impl Entry {
     fn new(
-        component: &'a mut dyn Component,
+        component: Box<dyn Component>,
         in_map: HashMap<String, String>,
         out_map: HashMap<String, String>,
     ) -> Result<Self, Error> {
@@ -158,7 +158,7 @@ impl<'a> Entry<'a> {
     }
 }
 
-impl<'a> IODevice for Entry<'a> {
+impl IODevice for Entry {
     fn set(&mut self, in_name: &str, value: bool, max_vised: u8) -> Result<(), Error> {
         if self.viseted > max_vised {
             // TODO
@@ -226,42 +226,44 @@ impl Connection {
             in_map,
         }
     }
+
+    fn name(&self) -> String {
+        self.comp_name.clone()
+    }
 }
 
-struct Circuit<'a> {
+struct Circuit {
     in_names: Vec<String>,
     out_names: Vec<String>,
     /// a graph containing the index to the components
     compute_graph: Vec<Vec<usize>>,
-    components: Vec<&'a mut dyn IODevice>,
+    components: Vec<Box<dyn IODevice>>,
     name: String,
+    max_vised: u8,
+    comp_map: HashMap<String, usize>,
 }
 
-impl<'a> Circuit<'a> {
+impl Circuit {
     fn new(
         in_names: Vec<&str>,
         out_names: Vec<&str>,
         name: &str,
         connections: Vec<Connection>,
-        all_components: HashMap<String, &'a dyn Component>,
+        all_components: HashMap<String, Box<Entry>>,
     ) -> Result<Self, Error> {
         // generate input and output nodes
         // comp_map is to look up the index in the components vec by the name
 
         let mut comp_map = HashMap::new();
-        let mut io = Vec::new();
+        let mut components: Vec<Box<dyn IODevice>> = Vec::new();
+
         for in_name in in_names.clone() {
-            comp_map.insert(in_name.to_string(), io.len());
-            io.push(InOut::new(in_name));
+            comp_map.insert(in_name.to_string(), components.len());
+            components.push(Box::new(InOut::new(in_name)));
         }
         for out_name in out_names.clone() {
-            comp_map.insert(out_name.to_string(), io.len());
-            io.push(InOut::new(out_name));
-        }
-
-        let mut components: Vec<&'a mut (dyn IODevice + 'a)> = Vec::new();
-        for in_out in io {
-            components.push(&'a mut in_out.to_owned());
+            comp_map.insert(out_name.to_string(), components.len());
+            components.push(Box::new(InOut::new(out_name)));
         }
 
         let in_names: Vec<String> = in_names
@@ -275,6 +277,13 @@ impl<'a> Circuit<'a> {
         let name = name.to_string();
 
         // insert components
+        for connection in connections {
+            if let Some(component) = all_components.get(&connection.name()) {
+                components.push(component.clone());
+            } else {
+                todo!();
+            }
+        }
 
         let mut compute_graph = Vec::new();
 
@@ -284,20 +293,42 @@ impl<'a> Circuit<'a> {
             compute_graph,
             components,
             name,
+            max_vised: 10,
+            comp_map,
         })
     }
 
     fn opt(&mut self) {
         todo!();
     }
+
+    fn set_max_vised(&mut self, max_vised: u8) {
+        self.max_vised = max_vised;
+    }
 }
 
-impl<'a> Component for Circuit<'a> {
-    fn set(&mut self, in_names: &str, value: bool) -> Result<(), Error> {
-        Ok(())
+impl Component for Circuit {
+    fn set(&mut self, in_name: &str, value: bool) -> Result<(), Error> {
+        for i in 0..self.in_names.len() {
+            for name in self.components[i].as_ref().out_names() {
+                if in_name == name {
+                    return self.components[i]
+                        .as_mut()
+                        .set(in_name, value, self.max_vised);
+                }
+            }
+        }
+        todo!();
     }
-    fn get(&self, out_names: &str) -> Result<bool, Error> {
-        Ok(false)
+    fn get(&mut self, out_name: &str) -> Result<bool, Error> {
+        for i in self.in_names.len()..self.out_names.len() {
+            for name in self.components[i].as_ref().out_names() {
+                if out_name == name {
+                    return self.components[i].as_mut().get(out_name, self.max_vised);
+                }
+            }
+        }
+        todo!();
     }
     fn in_names(&self) -> Vec<String> {
         self.in_names.clone()
