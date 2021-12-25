@@ -50,6 +50,7 @@ impl Circuit {
 
     pub fn all_max_vised(&mut self, max_vised: u8) {
         self.max_vised = max_vised;
+        self.components.set_max_vised(max_vised);
     }
 
     pub fn max_vised(&self) -> u8 {
