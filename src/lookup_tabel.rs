@@ -27,7 +27,7 @@ impl LookupTable {
         }
     }
 
-    fn output(&self) -> String {
+    pub fn output(&self) -> String {
         self.out_names.clone()
     }
 }
@@ -35,6 +35,14 @@ impl LookupTable {
 impl Component for LookupTable {
     fn box_clone(&self) -> Box<Self> {
         Box::new(self.clone())
+    }
+
+    fn to_lut(&self) -> Option<LookupTable> {
+        Some(self.clone())
+    }
+
+    fn to_circuit(&self) -> Option<crate::Circuit> {
+        None
     }
 
     fn name(&self) -> String {

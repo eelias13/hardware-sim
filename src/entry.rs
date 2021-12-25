@@ -1,4 +1,4 @@
-use crate::{Component, Error, IODevice};
+use crate::{Component, Connection, Error, IODevice};
 use std::collections::HashMap;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -10,17 +10,13 @@ pub struct Entry<T: Component> {
 }
 
 impl<T: Component> Entry<T> {
-    pub fn new(
-        component: Box<T>,
-        in_map: HashMap<String, String>,
-        out_map: HashMap<String, String>,
-    ) -> Result<Self, Error> {
+    pub fn new(component: Box<T>, connection: Connection) -> Result<Self, Error> {
         // TODO validate
         Ok(Self {
             viseted: 0,
             component,
-            in_map,
-            out_map,
+            in_map: connection.in_map(),
+            out_map: connection.out_map(),
         })
     }
 }
