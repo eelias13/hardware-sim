@@ -33,10 +33,7 @@ impl LookupTable {
 }
 
 impl Component for LookupTable {
-    fn box_clone(&self) -> Box<Self> {
-        Box::new(self.clone())
-    }
-
+    fn set_max_vised(&mut self, max_vised: u8) {}
     fn to_lut(&self) -> Option<LookupTable> {
         Some(self.clone())
     }
@@ -56,7 +53,7 @@ impl Component for LookupTable {
             }
         }
         // TODO usefull error
-        return Err(Error::msg(""));
+        return Err(Error::msg(format!("")));
     }
 
     fn get(&mut self, out_names: &str) -> Result<bool, Error> {

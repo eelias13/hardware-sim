@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Connection {
     in_map: HashMap<String, String>,
     out_map: HashMap<String, String>,

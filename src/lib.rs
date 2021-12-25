@@ -15,7 +15,10 @@ pub struct Error {
 }
 
 impl Error {
-    fn msg(msg: &str) -> Self {
+    fn msg(msg: String) -> Self {
+        Self { msg }
+    }
+    fn msg_str(msg: &str) -> Self {
         Self {
             msg: msg.to_string(),
         }
@@ -28,9 +31,9 @@ pub trait Component: Clone {
     fn in_names(&self) -> Vec<String>;
     fn out_names(&self) -> Vec<String>;
     fn name(&self) -> String;
-    fn box_clone(&self) -> Box<Self>;
     fn to_lut(&self) -> Option<LookupTable>;
     fn to_circuit(&self) -> Option<Circuit>;
+    fn set_max_vised(&mut self, max_vised: u8);
 }
 
 trait IODevice: Clone {
