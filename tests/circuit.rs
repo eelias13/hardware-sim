@@ -2,6 +2,7 @@ use hardware_sim::{Circuit, Component, Connection, LookupTable};
 use std::collections::HashMap;
 
 #[test]
+#[ignore]
 fn and_from_nand() {
     let nand = LookupTable::new(
         vec![vec![true, true, true, false]],

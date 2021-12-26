@@ -85,11 +85,12 @@ impl Component for LookupTable {
 
     fn get(&mut self, out_names: &str) -> Result<bool, Error> {
         let index = bool_to_u32(self.in_values.clone());
-        for (i, name) in self.in_names.iter().enumerate() {
+        for (i, name) in self.out_names.iter().enumerate() {
             if out_names == name {
                 return Ok(self.table[i][index as usize]);
             }
         }
+
         Err(Error::msg(format!(
             "out_names {} not found in chip (lut) {}",
             out_names,
