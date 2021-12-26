@@ -15,13 +15,15 @@ impl Circuit {
         out_names: Vec<&str>,
         name: &str,
         connections: Vec<Connection>,
-        all_components: &HashMap<String, Box<impl Component + 'static>>,
+        lut_map: &HashMap<String, crate::LookupTable>,
+        circuit_map: &HashMap<String, Circuit>,
     ) -> Result<Self, Error> {
         let components = Components::new(
             in_names,
             out_names,
             connections.clone(),
-            all_components,
+            lut_map,
+            circuit_map,
             name,
         )?;
 

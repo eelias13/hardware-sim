@@ -8,7 +8,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new(comp_name: &str, in_tuple: Vec<(&str, &str)>, out_tuple: Vec<(&str, &str)>) -> Self {
+    pub fn new(name: &str, in_tuple: Vec<(&str, &str)>, out_tuple: Vec<(&str, &str)>) -> Self {
         let mut in_map = HashMap::new();
         for (key, val) in in_tuple {
             in_map.insert(key.to_string(), val.to_string());
@@ -20,7 +20,7 @@ impl Connection {
         }
 
         Self {
-            comp_name: comp_name.to_string(),
+            comp_name: name.to_string(),
             out_map,
             in_map,
         }

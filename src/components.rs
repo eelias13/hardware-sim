@@ -20,7 +20,8 @@ impl Components {
         in_names: Vec<&str>,
         out_names: Vec<&str>,
         connections: Vec<Connection>,
-        all_components: &HashMap<String, Box<impl Component + 'static>>,
+        lut_map: &HashMap<String, LookupTable>,
+        circuit_map: &HashMap<String, Circuit>,
         name: &str,
     ) -> Result<Self, Error> {
         // generate input and output nodesout_name
@@ -53,11 +54,15 @@ impl Components {
         let mut circ_comp_name = Vec::new();
 
         for connection in connections {
-            if let Some(component) = all_components.get(&connection.name()) {
+            if let Some(component) = lut_map.get(&connection.name()) {
                 if let Some(lut) = component.to_lut() {
                     lut_comp_name.push(component.name());
                     luts.push(Entry::new(lut, connection)?);
-                } else if let Some(circuit) = component.to_circuit() {
+                } else {
+                    unreachable!();
+                }
+            } else if let Some(component) = circuit_map.get(&connection.name()) {
+                if let Some(circuit) = component.to_circuit() {
                     circuits.push(Entry::new(circuit, connection)?);
                     circ_comp_name.push(component.name());
                 } else {

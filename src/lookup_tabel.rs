@@ -13,9 +13,9 @@ pub struct LookupTable {
 impl LookupTable {
     pub fn new(
         table: Vec<Vec<bool>>,
-        in_names: Vec<String>,
-        out_names: Vec<String>,
-        name: String,
+        in_names: Vec<&str>,
+        out_names: Vec<&str>,
+        name: &str,
     ) -> Result<Self, Error> {
         if table.len() != out_names.len() {
             return Err(Error::msg(format!(
@@ -33,6 +33,16 @@ impl LookupTable {
                 )));
             }
         }
+
+        let in_names: Vec<String> = in_names
+            .iter()
+            .map(|s| -> String { s.to_string() })
+            .collect();
+        let out_names: Vec<String> = out_names
+            .iter()
+            .map(|s| -> String { s.to_string() })
+            .collect();
+        let name = name.to_string();
 
         Ok(Self {
             table,
