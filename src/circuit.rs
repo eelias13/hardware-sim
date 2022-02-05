@@ -1,5 +1,5 @@
 use crate::{components::Components, Component, Connection, Error};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Circuit {
@@ -57,6 +57,14 @@ impl Circuit {
 
     pub fn max_vised(&self) -> u8 {
         self.max_vised
+    }
+
+    pub fn step(&mut self, que: VecDeque<usize>) -> VecDeque<usize> {
+        que
+    }
+
+    pub fn get_all(&self) -> Vec<bool> {
+        self.components.get_all_out()
     }
 }
 

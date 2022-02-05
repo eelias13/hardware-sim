@@ -1,3 +1,4 @@
+mod chip_def;
 mod circuit;
 mod components;
 mod connection;
@@ -5,6 +6,7 @@ mod entry;
 mod in_out;
 mod lookup_tabel;
 
+pub use chip_def::{ChipDef, ComponentDef, ComponentIO, ComponentMap};
 pub use circuit::Circuit;
 pub use connection::Connection;
 pub use lookup_tabel::LookupTable;
@@ -41,5 +43,4 @@ trait IODevice: Clone {
     fn get(&mut self, out_name: &str, max_vised: u8) -> Result<bool, Error>;
     fn in_names(&self) -> Vec<String>;
     fn out_names(&self) -> Vec<String>;
-    // fn box_clone(&self) -> Box<Self>;
 }

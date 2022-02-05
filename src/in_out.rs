@@ -15,6 +15,10 @@ impl InOut {
             value: false,
         }
     }
+
+    pub fn value(&self) -> bool {
+        self.value
+    }
 }
 
 impl IODevice for InOut {

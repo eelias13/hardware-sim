@@ -131,6 +131,14 @@ impl Components {
         unreachable!();
     }
 
+    pub fn get_all_out(&self) -> Vec<bool> {
+        let mut result = Vec::new();
+        for i in self.in_names.len()..self.io.len() {
+            result.push(self.io[i].value());
+        }
+        result
+    }
+
     pub fn in_names(&self) -> Vec<String> {
         self.in_names.clone()
     }
