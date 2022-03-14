@@ -52,6 +52,10 @@ impl LookupTable {
             name,
         })
     }
+
+    pub fn get_table(&self) -> Vec<Vec<bool>> {
+        self.table.clone()
+    }
 }
 
 impl Component for LookupTable {
