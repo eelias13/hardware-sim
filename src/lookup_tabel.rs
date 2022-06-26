@@ -1,4 +1,5 @@
-use crate::{Component, Error};
+// use crate::{Component, Error};
+use crate::Error;
 use bool_algebra::bool_to_u32;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,18 +56,6 @@ impl LookupTable {
 
     pub fn get_table(&self) -> Vec<Vec<bool>> {
         self.table.clone()
-    }
-}
-
-impl Component for LookupTable {
-    fn set_max_vised(&mut self, _: u8) {}
-
-    fn to_lut(&self) -> Option<LookupTable> {
-        Some(self.clone())
-    }
-
-    fn to_circuit(&self) -> Option<crate::Circuit> {
-        None
     }
 
     fn name(&self) -> String {

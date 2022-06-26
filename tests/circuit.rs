@@ -1,3 +1,4 @@
+/*
 use hardware_sim::{Circuit, Component, Connection, LookupTable};
 use std::collections::HashMap;
 
@@ -35,7 +36,7 @@ fn and_from_nand() {
     assert_eq!(and.get("out"), Ok(false));
 }
 
-/*
+
 
 #[test]
 fn common_from_nand() {

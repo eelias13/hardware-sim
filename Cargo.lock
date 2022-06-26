@@ -8,8 +8,14 @@ version = "0.1.0"
 source = "git+https://github.com/eeli1/bool-algebra#22b3774697417848d04c1a8c4adcb2fd423a6eba"
 
 [[package]]
+name = "graph"
+version = "0.1.0"
+source = "git+https://github.com/eeli1/graph#bb04a4d99df6661d89e17d3b49e9220390cd7051"
+
+[[package]]
 name = "hardware-sim"
 version = "0.1.0"
 dependencies = [
  "bool-algebra",
+ "graph",
 ]
