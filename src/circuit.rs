@@ -12,14 +12,6 @@ impl InOut {
     fn new(name: String) -> Self {
         Self { name, value: false }
     }
-
-    fn value(&self) -> bool {
-        self.value
-    }
-
-    fn set(&mut self, value: bool) {
-        self.value = value;
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -32,18 +24,6 @@ struct Connection {
 impl Connection {
     fn new(from: usize, to: usize, weight: usize) -> Self {
         Self { weight, from, to }
-    }
-
-    fn weight(&self) -> usize {
-        self.weight
-    }
-
-    fn to(&self) -> usize {
-        self.to
-    }
-
-    fn from(&self) -> usize {
-        self.from
     }
 }
 
@@ -59,6 +39,8 @@ pub struct Circuit {
     graph: Graph<Component, Connection>,
     inputs: Vec<usize>,
     outputs: Vec<usize>,
+    in_map: HashMap<String, usize>,
+    out_map: HashMap<String, usize>,
 }
 
 impl Circuit {
@@ -89,8 +71,9 @@ impl Circuit {
 
                 for (i, o) in part.inputs() {
                     if let Some(i_id) = lut.in_map(i.clone()) {
-                        if let Some(o_id) = ids.get(&o) {
-                            //   circuit.add_connection(i_id, o_id, Connection::new(from, to, weight))
+                        if let Some(&o_id) = ids.get(&o).clone() {
+                            circuit.add_connection(i_id, o_id, Connection::new(i_id, o_id, 1))?;
+                            todo!();
                         } else {
                         }
                     } else {
@@ -128,7 +111,7 @@ impl Circuit {
             viseted.insert(node_id);
 
             let value = match self.graph.node(node_id) {
-                Ok(Component::In(node)) => vec![node.value()],
+                Ok(Component::In(node)) => vec![node.value],
                 Ok(Component::Lut(lut)) => lut.outputs(),
                 Ok(Component::Out(_)) => continue,
                 Err(err) => return Err(Error::msg(format!("graph error {:?}", err))),
@@ -143,14 +126,14 @@ impl Circuit {
                 }
 
                 match self.graph.node_mut(id) {
-                    Ok(Component::Lut(lut)) => lut.set_id(edge.to(), value[edge.from()])?,
+                    Ok(Component::Lut(lut)) => lut.set_id(edge.to, value[edge.from])?,
                     Ok(Component::Out(out)) => {
-                        if edge.to() == 0 {
-                            out.set(value[0])
+                        if edge.to == 0 {
+                            out.value = value[0]
                         } else {
                             return Err(Error::msg(format!(
                                 "unexpected id {} expected 0",
-                                edge.to()
+                                edge.to
                             )));
                         }
                     }
@@ -161,6 +144,22 @@ impl Circuit {
         }
         Ok(())
     }
+
+    pub fn get(&self, name: &str) -> Result<bool, Error> {
+        if let Some(&id) = self.out_map.get(name).clone() {
+            Ok(self.get_id(id)?)
+        } else {
+            Err(Error::msg(format!("no output named {}", name)))
+        }
+    }
+
+    pub fn set(&mut self, name: &str, value: bool) -> Result<(), Error> {
+        if let Some(&id) = self.in_map.get(name).clone() {
+            self.set_id(id, value)
+        } else {
+            Err(Error::msg(format!("no input named {}", name)))
+        }
+    }
 }
 
 impl Circuit {
@@ -170,6 +169,8 @@ impl Circuit {
             graph: Graph::new(),
             inputs: Vec::new(),
             outputs: Vec::new(),
+            in_map: HashMap::new(),
+            out_map: HashMap::new(),
         }
     }
 
@@ -177,8 +178,14 @@ impl Circuit {
         match self.graph.add_node(node.clone()) {
             Ok(value) => {
                 match node {
-                    Component::In(_) => self.inputs.push(value),
-                    Component::Out(_) => self.outputs.push(value),
+                    Component::In(node) => {
+                        self.inputs.push(value);
+                        self.in_map.insert(node.name, value);
+                    }
+                    Component::Out(node) => {
+                        self.outputs.push(value);
+                        self.out_map.insert(node.name, value);
+                    }
                     _ => (),
                 }
                 Ok(value)
@@ -205,7 +212,7 @@ impl Circuit {
         };
 
         if let Component::Out(node) = node {
-            Ok(node.value())
+            Ok(node.value)
         } else {
             Err(Error::msg(format!("{:?} is not an output node", node)))
         }
@@ -222,7 +229,7 @@ impl Circuit {
         };
 
         if let Component::In(node) = node {
-            node.set(value);
+            node.value = value;
             Ok(())
         } else {
             Err(Error::msg(format!("{:?} is not an input node", node)))
@@ -347,29 +354,4 @@ fn clock() {
     assert_eq!(clock.get_id(out_id), Ok(false));
     clock.tick().unwrap();
     assert_eq!(clock.get_id(out_id), Ok(true));
-}
-
-#[test]
-fn test() {
-    let nand = LookupTable::new(
-        vec![vec![true, false, false, false]],
-        vec!["a", "b"],
-        vec!["out"],
-        "nand",
-    )
-    .unwrap();
-
-    let def = ChipDef::new(
-        "And",
-        vec!["a", "b"],
-        vec!["out"],
-        vec![
-            ComponentDef::new(vec![("a", "a"), ("b", "b")], vec![("out", "nand")], "Nand"),
-            ComponentDef::new(
-                vec![("a", "nand"), ("b", "nand")],
-                vec![("out", "out")],
-                "Nand",
-            ),
-        ],
-    );
 }

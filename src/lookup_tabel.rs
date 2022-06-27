@@ -7,8 +7,7 @@ use bool_algebra::bool_to_u32;
 pub struct LookupTable {
     table: Vec<Vec<bool>>,
     in_values: Vec<bool>,
-    in_names: Vec<String>,
-    out_names: Vec<String>,
+
     in_map: HashMap<String, usize>,
     out_map: HashMap<String, usize>,
     name: String,
@@ -38,32 +37,23 @@ impl LookupTable {
             }
         }
 
-        let in_names: Vec<String> = in_names
-            .iter()
-            .map(|s| -> String { s.to_string() })
-            .collect();
-        let out_names: Vec<String> = out_names
-            .iter()
-            .map(|s| -> String { s.to_string() })
-            .collect();
         let name = name.to_string();
 
         let mut in_map = HashMap::new();
         let mut out_map = HashMap::new();
 
         for (i, input) in in_names.iter().enumerate() {
-            in_map.insert(input.clone(), i);
+            in_map.insert(input.to_string(), i);
         }
 
         for (i, output) in out_names.iter().enumerate() {
-            out_map.insert(output.clone(), i);
+            out_map.insert(output.to_string(), i);
         }
 
         Ok(Self {
             table,
             in_values: vec![false; in_names.len()],
-            in_names,
-            out_names,
+
             name,
             in_map,
             out_map,
@@ -92,8 +82,8 @@ impl LookupTable {
 
     pub fn outputs(&self) -> Vec<bool> {
         let index = bool_to_u32(self.in_values.clone()) as usize;
-        let mut result = Vec::with_capacity(self.out_names.len());
-        for i in 0..self.out_names.len() {
+        let mut result = Vec::with_capacity(self.out_map.len());
+        for i in 0..self.out_map.len() {
             result.push(self.table[i][index]);
         }
 
@@ -137,10 +127,10 @@ impl LookupTable {
 
     pub fn get_id(&mut self, out_id: usize) -> Result<bool, Error> {
         let index = bool_to_u32(self.in_values.clone()) as usize;
-        if out_id > self.out_names.len() - 1 {
+        if out_id > self.out_map.len() - 1 {
             Err(Error::msg(format!(
                 "out_id dose not exist max {} input {}",
-                self.out_names.len() - 1,
+                self.out_map.len() - 1,
                 out_id
             )))
         } else {
@@ -148,11 +138,11 @@ impl LookupTable {
         }
     }
 
-    pub fn in_names(&self) -> Vec<String> {
-        self.in_names.clone()
-    }
-
-    pub fn out_names(&self) -> Vec<String> {
-        self.out_names.clone()
-    }
+    // pub fn in_names(&self) -> Vec<String> {
+    //     self.in_map.()
+    // }
+    //
+    // pub fn out_names(&self) -> Vec<String> {
+    //     self.out_names.clone()
+    // }
 }
