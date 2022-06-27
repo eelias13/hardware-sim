@@ -5,12 +5,12 @@ version = 3
 [[package]]
 name = "bool-algebra"
 version = "0.1.0"
-source = "git+https://github.com/eeli1/bool-algebra#22b3774697417848d04c1a8c4adcb2fd423a6eba"
+source = "git+https://github.com/eeli1/bool-algebra#a2ad65288a28322b2009817e822d9c7203964216"
 
 [[package]]
 name = "graph"
 version = "0.1.0"
-source = "git+https://github.com/eeli1/graph#bb04a4d99df6661d89e17d3b49e9220390cd7051"
+source = "git+https://github.com/eeli1/graph#73aac0592e2c3a16f39a2d0f6935de60272024d7"
 
 [[package]]
 name = "hardware-sim"

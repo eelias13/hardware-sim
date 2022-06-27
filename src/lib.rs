@@ -44,6 +44,8 @@ impl Error {
 // }
 //
 
+use std::collections::VecDeque;
+
 use graph::Graph;
 mod lookup_tabel;
 
@@ -63,26 +65,34 @@ impl InOut {
         }
     }
 
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
     pub fn value(&self) -> bool {
         self.value
+    }
+
+    pub fn set(&mut self, value: bool) {
+        self.value = value;
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Connection {
+pub struct Connection {
     weight: usize,
     from: usize,
     to: usize,
 }
 
 impl Connection {
-    fn new(from: usize, to: usize, weight: usize) -> Self {
+    pub fn new(from: usize, to: usize, weight: usize) -> Self {
         Self { weight, from, to }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum Node {
+pub enum Node {
     Lut(LookupTable),
     In(InOut),
     Out(InOut),
@@ -103,7 +113,7 @@ impl Circuit {
         }
     }
 
-    fn add_node(&mut self, node: Node) -> Result<usize, Error> {
+    pub fn add_node(&mut self, node: Node) -> Result<usize, Error> {
         match self.graph.add_node(node.clone()) {
             Ok(value) => {
                 match node {
@@ -117,7 +127,7 @@ impl Circuit {
         }
     }
 
-    fn add_connection(
+    pub fn add_connection(
         &mut self,
         from: usize,
         to: usize,
@@ -126,14 +136,56 @@ impl Circuit {
         self.graph.add_edge(from, to, edge)
     }
 
-    fn tick(&mut self) {}
+    pub fn tick(&mut self) {
+        let mut queue = VecDeque::with_capacity(self.inputs.len());
+        for input in self.inputs.clone() {
+            queue.push_back(input);
+        }
 
-    fn get(&self, node_id: usize) -> Result<bool, Error> {
-        Ok(true)
+        while  let Some(node_id) = queue.pop_front()  {
+
+
+           // match  self.graph.node(node_id) {
+           //     Node::In(node)  => 
+           // }
+
+          
+        }
     }
 
-    fn set(&mut self, node_id: usize) -> Result<(), Error> {
-        Ok(())
+    pub fn get(&self, node_id: usize) -> Result<bool, Error> {
+        if !self.outputs.contains(&node_id) {
+            return Err(Error::msg(format!("{} in not an input id", node_id)));
+        }
+
+        let node = match self.graph.node(node_id) {
+            Err(err) => return Err(Error::msg(format!("graph error {:?}", err))),
+            Ok(node) => node.clone(),
+        };
+
+        if let Node::Out(node) = node {
+            Ok(node.value())
+        } else {
+            Err(Error::msg(format!("{:?} is not an output node", node)))
+        }
+    }
+
+    pub fn set(&mut self, node_id: usize, value: bool) -> Result<(), Error> {
+        if !self.inputs.contains(&node_id) {
+            return Err(Error::msg(format!("{} in not an input id", node_id)));
+        }
+
+        let node = match self.graph.node_mut(node_id) {
+            Err(err) => return Err(Error::msg(format!("graph error {:?}", err))),
+            Ok(node) => node,
+        };
+
+        if let Node::In(node) = node {
+            node.set(value);
+            Ok(())
+        } else {
+            Err(Error::msg(format!("{:?} is not an input node", node)))
+        }
     }
 }
 
