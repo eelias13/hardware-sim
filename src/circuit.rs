@@ -1,105 +1,296 @@
-use crate::{components::Components, Component, Connection, Error};
-use std::collections::{HashMap, VecDeque};
+use crate::{Error, LookupTable};
+use graph::Graph;
+use std::collections::{HashSet, VecDeque};
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct InOut {
+    name: String,
+    value: bool,
+}
+
+impl InOut {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            value: false,
+        }
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn value(&self) -> bool {
+        self.value
+    }
+
+    pub fn set(&mut self, value: bool) {
+        self.value = value;
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Connection {
+    weight: usize,
+    from: usize,
+    to: usize,
+}
+
+impl Connection {
+    pub fn new(from: usize, to: usize, weight: usize) -> Self {
+        Self { weight, from, to }
+    }
+
+    pub fn weight(&self) -> usize {
+        self.weight
+    }
+
+    pub fn to(&self) -> usize {
+        self.to
+    }
+
+    pub fn from(&self) -> usize {
+        self.from
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Component {
+    Lut(LookupTable),
+    In(InOut),
+    Out(InOut),
+}
+
 pub struct Circuit {
-    /// a graph containing the index to the components
-    compute_graph: Vec<Vec<usize>>,
-    components: Components,
-    max_vised: u8,
+    graph: Graph<Component, Connection>,
+    inputs: Vec<usize>,
+    outputs: Vec<usize>,
 }
 
 impl Circuit {
-    pub fn new(
-        in_names: Vec<&str>,
-        out_names: Vec<&str>,
-        name: &str,
-        connections: Vec<Connection>,
-        lut_map: &HashMap<String, crate::LookupTable>,
-        circuit_map: &HashMap<String, Circuit>,
-    ) -> Result<Self, Error> {
-        let components = Components::new(
-            in_names,
-            out_names,
-            connections.clone(),
-            lut_map,
-            circuit_map,
-            name,
-        )?;
+    pub fn new() -> Self {
+        Self {
+            graph: Graph::new(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+        }
+    }
 
-        let mut compute_graph = vec![Vec::new(); components.len()];
-        for connection in connections {
-            let mut out_index = Vec::new();
-            for name in connection.out_map().values() {
-                out_index.push(components.index(name)?);
+    pub fn add_node(&mut self, node: Component) -> Result<usize, Error> {
+        match self.graph.add_node(node.clone()) {
+            Ok(value) => {
+                match node {
+                    Component::In(_) => self.inputs.push(value),
+                    Component::Out(_) => self.outputs.push(value),
+                    _ => (),
+                }
+                Ok(value)
             }
+            Err(error) => Err(Error::msg(format!("graph error {:?}", error))),
+        }
+    }
 
-            for name in connection.in_map().values() {
-                compute_graph[components.index(name)?] = out_index.clone();
-            }
+    pub fn add_connection(
+        &mut self,
+        from: usize,
+        to: usize,
+        edge: Connection,
+    ) -> Result<(), Error> {
+        match self.graph.add_edge(from, to, edge) {
+            Ok(()) => Ok(()),
+            Err(err) => Err(Error::msg(format!("graph error {:?}", err))),
+        }
+    }
+
+    pub fn tick(&mut self) -> Result<(), Error> {
+        let mut queue = VecDeque::with_capacity(self.inputs.len());
+        let mut viseted = HashSet::new();
+
+        for input in self.inputs.clone() {
+            queue.push_back(input);
         }
 
-        Ok(Self {
-            components,
-            compute_graph,
-            max_vised: 10,
-        })
+        while let Some(node_id) = queue.pop_front() {
+            viseted.insert(node_id);
+
+            let value = match self.graph.node(node_id) {
+                Ok(Component::In(node)) => vec![node.value()],
+                Ok(Component::Lut(lut)) => lut.outputs(),
+                Ok(Component::Out(_)) => continue,
+                Err(err) => return Err(Error::msg(format!("graph error {:?}", err))),
+            };
+
+            for (edge, id) in match self.graph.out_edges(node_id) {
+                Ok(vec) => vec,
+                Err(err) => return Err(Error::msg(format!("graph error {:?}", err))),
+            } {
+                if viseted.get(&id) == None {
+                    queue.push_back(id);
+                }
+
+                match self.graph.node_mut(id) {
+                    Ok(Component::Lut(lut)) => lut.set(edge.to(), value[edge.from()])?,
+                    Ok(Component::Out(out)) => {
+                        if edge.to() == 0 {
+                            out.set(value[0])
+                        } else {
+                            return Err(Error::msg(format!(
+                                "unexpected id {} expected 0",
+                                edge.to()
+                            )));
+                        }
+                    }
+                    Ok(node) => return Err(Error::msg(format!("unexpected type {:?}", node))),
+                    Err(err) => return Err(Error::msg(format!("graph error {:?}", err))),
+                }
+            }
+        }
+        Ok(())
     }
 
-    pub fn opt(&mut self) {
-        todo!();
+    pub fn get(&self, node_id: usize) -> Result<bool, Error> {
+        if !self.outputs.contains(&node_id) {
+            return Err(Error::msg(format!("{} in not an input id", node_id)));
+        }
+
+        let node = match self.graph.node(node_id) {
+            Err(err) => return Err(Error::msg(format!("graph error {:?}", err))),
+            Ok(node) => node.clone(),
+        };
+
+        if let Component::Out(node) = node {
+            Ok(node.value())
+        } else {
+            Err(Error::msg(format!("{:?} is not an output node", node)))
+        }
     }
 
-    pub fn all_max_vised(&mut self, max_vised: u8) {
-        self.max_vised = max_vised;
-        self.components.set_max_vised(max_vised);
-    }
+    pub fn set(&mut self, node_id: usize, value: bool) -> Result<(), Error> {
+        if !self.inputs.contains(&node_id) {
+            return Err(Error::msg(format!("{} in not an input id", node_id)));
+        }
 
-    pub fn max_vised(&self) -> u8 {
-        self.max_vised
-    }
+        let node = match self.graph.node_mut(node_id) {
+            Err(err) => return Err(Error::msg(format!("graph error {:?}", err))),
+            Ok(node) => node,
+        };
 
-    pub fn step(&mut self, que: VecDeque<usize>) -> VecDeque<usize> {
-        que
-    }
-
-    pub fn get_all(&self) -> Vec<bool> {
-        self.components.get_all_out()
+        if let Component::In(node) = node {
+            node.set(value);
+            Ok(())
+        } else {
+            Err(Error::msg(format!("{:?} is not an input node", node)))
+        }
     }
 }
 
-impl Component for Circuit {
-    fn set_max_vised(&mut self, max_vised: u8) {
-        self.max_vised = max_vised;
-    }
+#[test]
+fn ram() {
+    let not = LookupTable::new(vec![vec![true, false]], vec!["in"], vec!["out"], "not").unwrap();
+    let and = LookupTable::new(
+        vec![vec![false, false, false, true]],
+        vec!["in1", "in2"],
+        vec!["out"],
+        "and",
+    )
+    .unwrap();
+    let or = LookupTable::new(
+        vec![vec![false, true, true, true]],
+        vec!["in1", "in2"],
+        vec!["out"],
+        "or",
+    )
+    .unwrap();
 
-    fn set(&mut self, in_name: &str, value: bool) -> Result<(), Error> {
-        self.components.set(in_name, value, self.max_vised)
-    }
+    let mut ram = Circuit::new();
+    let not_id = ram.add_node(Component::Lut(not)).unwrap();
+    let or_id = ram.add_node(Component::Lut(or)).unwrap();
+    let and_id = ram.add_node(Component::Lut(and)).unwrap();
+    let in_id = ram.add_node(Component::In(InOut::new("input"))).unwrap();
+    let out_id = ram.add_node(Component::Out(InOut::new("output"))).unwrap();
+    let res_id = ram.add_node(Component::In(InOut::new("reset"))).unwrap();
 
-    fn get(&mut self, out_name: &str) -> Result<bool, Error> {
-        if self.components.out_names().contains(&out_name.to_string()) {
-            self.components.get(out_name, self.max_vised)
-        } else {
-            Err(Error::msg(format!("{} is not a output", out_name)))
-        }
-    }
-    fn in_names(&self) -> Vec<String> {
-        self.components.in_names()
-    }
+    ram.add_connection(res_id, not_id, Connection::new(0, 0, 1))
+        .unwrap();
+    ram.add_connection(not_id, and_id, Connection::new(0, 0, 1))
+        .unwrap();
+    ram.add_connection(and_id, out_id, Connection::new(0, 0, 1))
+        .unwrap();
+    ram.add_connection(in_id, or_id, Connection::new(0, 1, 1))
+        .unwrap();
+    ram.add_connection(or_id, and_id, Connection::new(0, 1, 1))
+        .unwrap();
+    ram.add_connection(and_id, or_id, Connection::new(0, 0, 1))
+        .unwrap();
 
-    fn out_names(&self) -> Vec<String> {
-        self.components.out_names()
-    }
-    fn name(&self) -> String {
-        self.components.name()
-    }
+    assert_eq!(ram.get(out_id), Ok(false));
 
-    fn to_lut(&self) -> Option<crate::LookupTable> {
-        None
-    }
+    ram.tick().unwrap();
+    ram.set(in_id, true).unwrap();
+    assert_eq!(ram.get(out_id), Ok(false));
+    ram.tick().unwrap();
+    ram.set(in_id, false).unwrap();
+    assert_eq!(ram.get(out_id), Ok(true));
+    ram.tick().unwrap();
+    assert_eq!(ram.get(out_id), Ok(true));
+    ram.tick().unwrap();
 
-    fn to_circuit(&self) -> Option<Circuit> {
-        Some(self.clone())
-    }
+    ram.set(res_id, true).unwrap();
+    ram.tick().unwrap();
+    assert_eq!(ram.get(out_id), Ok(false));
+    ram.set(res_id, false).unwrap();
+    ram.tick().unwrap();
+    assert_eq!(ram.get(out_id), Ok(false));
+    ram.tick().unwrap();
+    assert_eq!(ram.get(out_id), Ok(false));
+    ram.tick().unwrap();
+}
+
+#[test]
+fn clock() {
+    let not = LookupTable::new(vec![vec![true, false]], vec!["in"], vec!["out"], "not").unwrap();
+    let or = LookupTable::new(
+        vec![vec![false, true, true, true]],
+        vec!["in1", "in2"],
+        vec!["out"],
+        "or",
+    )
+    .unwrap();
+
+    let mut clock = Circuit::new();
+    let not_id = clock.add_node(Component::Lut(not)).unwrap();
+    let or_id = clock.add_node(Component::Lut(or)).unwrap();
+    let in_id = clock.add_node(Component::In(InOut::new("input"))).unwrap();
+    let out_id = clock
+        .add_node(Component::Out(InOut::new("output")))
+        .unwrap();
+
+    clock
+        .add_connection(in_id, or_id, Connection::new(0, 1, 1))
+        .unwrap();
+    clock
+        .add_connection(or_id, not_id, Connection::new(0, 0, 1))
+        .unwrap();
+    clock
+        .add_connection(not_id, out_id, Connection::new(0, 0, 1))
+        .unwrap();
+    clock
+        .add_connection(not_id, or_id, Connection::new(0, 0, 1))
+        .unwrap();
+
+    assert_eq!(clock.get(out_id), Ok(false));
+    clock.tick().unwrap();
+    assert_eq!(clock.get(out_id), Ok(true));
+    clock.tick().unwrap();
+    assert_eq!(clock.get(out_id), Ok(false));
+    clock.tick().unwrap();
+    assert_eq!(clock.get(out_id), Ok(true));
+    clock.tick().unwrap();
+    assert_eq!(clock.get(out_id), Ok(false));
+    clock.tick().unwrap();
+    assert_eq!(clock.get(out_id), Ok(true));
+    clock.tick().unwrap();
+    assert_eq!(clock.get(out_id), Ok(false));
+    clock.tick().unwrap();
+    assert_eq!(clock.get(out_id), Ok(true));
 }
