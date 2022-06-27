@@ -58,43 +58,51 @@ impl LookupTable {
         self.table.clone()
     }
 
-    fn name(&self) -> String {
+    pub fn outputs(&self) -> Vec<bool> {
+        let index = bool_to_u32(self.in_values.clone()) as usize;
+        let mut result = Vec::with_capacity(self.out_names.len());
+        for i in 0..self.out_names.len() {
+            result.push(self.table[i][index]);
+        }
+
+        return result;
+    }
+
+    pub fn name(&self) -> String {
         self.name.clone()
     }
 
-    fn set(&mut self, in_names: &str, value: bool) -> Result<(), Error> {
-        for (i, name) in self.in_names.iter().enumerate() {
-            if in_names == name {
-                self.in_values[i] = value;
-                return Ok(());
-            }
+    pub fn set(&mut self, in_id: usize, value: bool) -> Result<(), Error> {
+        if in_id > self.in_values.len() - 1 {
+            Err(Error::msg(format!(
+                "in_id dose not exist max {} input {}",
+                self.in_values.len() - 1,
+                in_id
+            )))
+        } else {
+            self.in_values[in_id] = value;
+            Ok(())
         }
-        Err(Error::msg(format!(
-            "in_names {} not found in chip (lut) {}",
-            in_names,
-            self.name()
-        )))
     }
 
-    fn get(&mut self, out_names: &str) -> Result<bool, Error> {
-        let index = bool_to_u32(self.in_values.clone());
-        for (i, name) in self.out_names.iter().enumerate() {
-            if out_names == name {
-                return Ok(self.table[i][index as usize]);
-            }
+    pub fn get(&mut self, out_id: usize) -> Result<bool, Error> {
+        let index = bool_to_u32(self.in_values.clone()) as usize;
+        if out_id > self.out_names.len() - 1 {
+            Err(Error::msg(format!(
+                "out_id dose not exist max {} input {}",
+                self.out_names.len() - 1,
+                out_id
+            )))
+        } else {
+            Ok(self.table[out_id][index])
         }
-
-        Err(Error::msg(format!(
-            "out_names {} not found in chip (lut) {}",
-            out_names,
-            self.name()
-        )))
     }
 
-    fn in_names(&self) -> Vec<String> {
+    pub fn in_names(&self) -> Vec<String> {
         self.in_names.clone()
     }
-    fn out_names(&self) -> Vec<String> {
+
+    pub fn out_names(&self) -> Vec<String> {
         self.out_names.clone()
     }
 }

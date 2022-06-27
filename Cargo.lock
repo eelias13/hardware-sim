@@ -10,7 +10,7 @@ source = "git+https://github.com/eeli1/bool-algebra#a2ad65288a28322b2009817e822d
 [[package]]
 name = "graph"
 version = "0.1.0"
-source = "git+https://github.com/eeli1/graph#73aac0592e2c3a16f39a2d0f6935de60272024d7"
+source = "git+https://github.com/eeli1/graph#724348bafdbd2153604f1b5a444e17d85fe0f43e"
 
 [[package]]
 name = "hardware-sim"
