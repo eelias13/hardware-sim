@@ -1,105 +1,119 @@
-use crate::{Error, LookupTable};
+use crate::{ChipDef, ComponentDef, Error, LookupTable};
 use graph::Graph;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct InOut {
+struct InOut {
     name: String,
     value: bool,
 }
 
 impl InOut {
-    pub fn new(name: &str) -> Self {
-        Self {
-            name: name.to_string(),
-            value: false,
-        }
+    fn new(name: String) -> Self {
+        Self { name, value: false }
     }
 
-    pub fn name(&self) -> String {
-        self.name.clone()
-    }
-
-    pub fn value(&self) -> bool {
+    fn value(&self) -> bool {
         self.value
     }
 
-    pub fn set(&mut self, value: bool) {
+    fn set(&mut self, value: bool) {
         self.value = value;
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Connection {
+struct Connection {
     weight: usize,
     from: usize,
     to: usize,
 }
 
 impl Connection {
-    pub fn new(from: usize, to: usize, weight: usize) -> Self {
+    fn new(from: usize, to: usize, weight: usize) -> Self {
         Self { weight, from, to }
     }
 
-    pub fn weight(&self) -> usize {
+    fn weight(&self) -> usize {
         self.weight
     }
 
-    pub fn to(&self) -> usize {
+    fn to(&self) -> usize {
         self.to
     }
 
-    pub fn from(&self) -> usize {
+    fn from(&self) -> usize {
         self.from
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Component {
+enum Component {
     Lut(LookupTable),
     In(InOut),
     Out(InOut),
 }
 
 pub struct Circuit {
+    name: String,
     graph: Graph<Component, Connection>,
     inputs: Vec<usize>,
     outputs: Vec<usize>,
 }
 
 impl Circuit {
-    pub fn new() -> Self {
-        Self {
-            graph: Graph::new(),
-            inputs: Vec::new(),
-            outputs: Vec::new(),
-        }
-    }
+    pub fn new(
+        chip_def: ChipDef<ComponentDef>,
+        lut_map: HashMap<String, LookupTable>,
+    ) -> Result<Self, Error> {
+        let mut circuit = Self::blank(chip_def.name());
+        let mut ids = HashMap::new();
 
-    pub fn add_node(&mut self, node: Component) -> Result<usize, Error> {
-        match self.graph.add_node(node.clone()) {
-            Ok(value) => {
-                match node {
-                    Component::In(_) => self.inputs.push(value),
-                    Component::Out(_) => self.outputs.push(value),
-                    _ => (),
+        for input in chip_def.inputs() {
+            ids.insert(
+                input.clone(),
+                circuit.add_node(Component::In(InOut::new(input)))?,
+            );
+        }
+
+        for output in chip_def.outputs() {
+            ids.insert(
+                output.clone(),
+                circuit.add_node(Component::Out(InOut::new(output)))?,
+            );
+        }
+
+        for part in chip_def.parts() {
+            if let Some(lut) = lut_map.get(&part.name()) {
+                ids.insert(part.name(), circuit.add_node(Component::Lut(lut.clone()))?);
+
+                for (i, o) in part.inputs() {
+                    if let Some(i_id) = lut.in_map(i.clone()) {
+                        if let Some(o_id) = ids.get(&o) {
+                            //   circuit.add_connection(i_id, o_id, Connection::new(from, to, weight))
+                        } else {
+                        }
+                    } else {
+                        return Err(Error::msg(format!(
+                            "on table {} no input named {}",
+                            lut.name(),
+                            i
+                        )));
+                    }
                 }
-                Ok(value)
+            } else {
+                return Err(Error::msg(format!(
+                    "no lookup table found with name {}",
+                    part.name()
+                )));
             }
-            Err(error) => Err(Error::msg(format!("graph error {:?}", error))),
         }
+
+        Ok(circuit)
     }
 
-    pub fn add_connection(
-        &mut self,
-        from: usize,
-        to: usize,
-        edge: Connection,
-    ) -> Result<(), Error> {
-        match self.graph.add_edge(from, to, edge) {
-            Ok(()) => Ok(()),
-            Err(err) => Err(Error::msg(format!("graph error {:?}", err))),
-        }
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 
     pub fn tick(&mut self) -> Result<(), Error> {
@@ -129,7 +143,7 @@ impl Circuit {
                 }
 
                 match self.graph.node_mut(id) {
-                    Ok(Component::Lut(lut)) => lut.set(edge.to(), value[edge.from()])?,
+                    Ok(Component::Lut(lut)) => lut.set_id(edge.to(), value[edge.from()])?,
                     Ok(Component::Out(out)) => {
                         if edge.to() == 0 {
                             out.set(value[0])
@@ -147,8 +161,40 @@ impl Circuit {
         }
         Ok(())
     }
+}
 
-    pub fn get(&self, node_id: usize) -> Result<bool, Error> {
+impl Circuit {
+    fn blank(name: String) -> Self {
+        Self {
+            name,
+            graph: Graph::new(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+        }
+    }
+
+    fn add_node(&mut self, node: Component) -> Result<usize, Error> {
+        match self.graph.add_node(node.clone()) {
+            Ok(value) => {
+                match node {
+                    Component::In(_) => self.inputs.push(value),
+                    Component::Out(_) => self.outputs.push(value),
+                    _ => (),
+                }
+                Ok(value)
+            }
+            Err(error) => Err(Error::msg(format!("graph error {:?}", error))),
+        }
+    }
+
+    fn add_connection(&mut self, from: usize, to: usize, edge: Connection) -> Result<(), Error> {
+        match self.graph.add_edge(from, to, edge) {
+            Ok(()) => Ok(()),
+            Err(err) => Err(Error::msg(format!("graph error {:?}", err))),
+        }
+    }
+
+    fn get_id(&self, node_id: usize) -> Result<bool, Error> {
         if !self.outputs.contains(&node_id) {
             return Err(Error::msg(format!("{} in not an input id", node_id)));
         }
@@ -165,7 +211,7 @@ impl Circuit {
         }
     }
 
-    pub fn set(&mut self, node_id: usize, value: bool) -> Result<(), Error> {
+    fn set_id(&mut self, node_id: usize, value: bool) -> Result<(), Error> {
         if !self.inputs.contains(&node_id) {
             return Err(Error::msg(format!("{} in not an input id", node_id)));
         }
@@ -202,13 +248,19 @@ fn ram() {
     )
     .unwrap();
 
-    let mut ram = Circuit::new();
+    let mut ram = Circuit::blank("ram".to_string());
     let not_id = ram.add_node(Component::Lut(not)).unwrap();
     let or_id = ram.add_node(Component::Lut(or)).unwrap();
     let and_id = ram.add_node(Component::Lut(and)).unwrap();
-    let in_id = ram.add_node(Component::In(InOut::new("input"))).unwrap();
-    let out_id = ram.add_node(Component::Out(InOut::new("output"))).unwrap();
-    let res_id = ram.add_node(Component::In(InOut::new("reset"))).unwrap();
+    let in_id = ram
+        .add_node(Component::In(InOut::new("input".to_string())))
+        .unwrap();
+    let out_id = ram
+        .add_node(Component::Out(InOut::new("output".to_string())))
+        .unwrap();
+    let res_id = ram
+        .add_node(Component::In(InOut::new("reset".to_string())))
+        .unwrap();
 
     ram.add_connection(res_id, not_id, Connection::new(0, 0, 1))
         .unwrap();
@@ -223,26 +275,26 @@ fn ram() {
     ram.add_connection(and_id, or_id, Connection::new(0, 0, 1))
         .unwrap();
 
-    assert_eq!(ram.get(out_id), Ok(false));
+    assert_eq!(ram.get_id(out_id), Ok(false));
 
     ram.tick().unwrap();
-    ram.set(in_id, true).unwrap();
-    assert_eq!(ram.get(out_id), Ok(false));
+    ram.set_id(in_id, true).unwrap();
+    assert_eq!(ram.get_id(out_id), Ok(false));
     ram.tick().unwrap();
-    ram.set(in_id, false).unwrap();
-    assert_eq!(ram.get(out_id), Ok(true));
+    ram.set_id(in_id, false).unwrap();
+    assert_eq!(ram.get_id(out_id), Ok(true));
     ram.tick().unwrap();
-    assert_eq!(ram.get(out_id), Ok(true));
+    assert_eq!(ram.get_id(out_id), Ok(true));
     ram.tick().unwrap();
 
-    ram.set(res_id, true).unwrap();
+    ram.set_id(res_id, true).unwrap();
     ram.tick().unwrap();
-    assert_eq!(ram.get(out_id), Ok(false));
-    ram.set(res_id, false).unwrap();
+    assert_eq!(ram.get_id(out_id), Ok(false));
+    ram.set_id(res_id, false).unwrap();
     ram.tick().unwrap();
-    assert_eq!(ram.get(out_id), Ok(false));
+    assert_eq!(ram.get_id(out_id), Ok(false));
     ram.tick().unwrap();
-    assert_eq!(ram.get(out_id), Ok(false));
+    assert_eq!(ram.get_id(out_id), Ok(false));
     ram.tick().unwrap();
 }
 
@@ -257,12 +309,14 @@ fn clock() {
     )
     .unwrap();
 
-    let mut clock = Circuit::new();
+    let mut clock = Circuit::blank("clock".to_string());
     let not_id = clock.add_node(Component::Lut(not)).unwrap();
     let or_id = clock.add_node(Component::Lut(or)).unwrap();
-    let in_id = clock.add_node(Component::In(InOut::new("input"))).unwrap();
+    let in_id = clock
+        .add_node(Component::In(InOut::new("input".to_string())))
+        .unwrap();
     let out_id = clock
-        .add_node(Component::Out(InOut::new("output")))
+        .add_node(Component::Out(InOut::new("output".to_string())))
         .unwrap();
 
     clock
@@ -278,19 +332,44 @@ fn clock() {
         .add_connection(not_id, or_id, Connection::new(0, 0, 1))
         .unwrap();
 
-    assert_eq!(clock.get(out_id), Ok(false));
+    assert_eq!(clock.get_id(out_id), Ok(false));
     clock.tick().unwrap();
-    assert_eq!(clock.get(out_id), Ok(true));
+    assert_eq!(clock.get_id(out_id), Ok(true));
     clock.tick().unwrap();
-    assert_eq!(clock.get(out_id), Ok(false));
+    assert_eq!(clock.get_id(out_id), Ok(false));
     clock.tick().unwrap();
-    assert_eq!(clock.get(out_id), Ok(true));
+    assert_eq!(clock.get_id(out_id), Ok(true));
     clock.tick().unwrap();
-    assert_eq!(clock.get(out_id), Ok(false));
+    assert_eq!(clock.get_id(out_id), Ok(false));
     clock.tick().unwrap();
-    assert_eq!(clock.get(out_id), Ok(true));
+    assert_eq!(clock.get_id(out_id), Ok(true));
     clock.tick().unwrap();
-    assert_eq!(clock.get(out_id), Ok(false));
+    assert_eq!(clock.get_id(out_id), Ok(false));
     clock.tick().unwrap();
-    assert_eq!(clock.get(out_id), Ok(true));
+    assert_eq!(clock.get_id(out_id), Ok(true));
+}
+
+#[test]
+fn test() {
+    let nand = LookupTable::new(
+        vec![vec![true, false, false, false]],
+        vec!["a", "b"],
+        vec!["out"],
+        "nand",
+    )
+    .unwrap();
+
+    let def = ChipDef::new(
+        "And",
+        vec!["a", "b"],
+        vec!["out"],
+        vec![
+            ComponentDef::new(vec![("a", "a"), ("b", "b")], vec![("out", "nand")], "Nand"),
+            ComponentDef::new(
+                vec![("a", "nand"), ("b", "nand")],
+                vec![("out", "out")],
+                "Nand",
+            ),
+        ],
+    );
 }

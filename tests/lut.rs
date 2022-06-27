@@ -1,5 +1,4 @@
-/*
-use hardware_sim::{Component, LookupTable};
+use hardware_sim::LookupTable;
 
 #[test]
 fn nand() {
@@ -58,4 +57,3 @@ fn common_3_in_1() {
     assert_eq!(common.get("or"), Ok(true));
     assert_eq!(common.get("xor"), Ok(false));
 }
-*/

@@ -6,7 +6,7 @@ pub struct ChipDef<T> {
     parts: Vec<T>,
 }
 
-impl<T> ChipDef<T> {
+impl<T: Clone> ChipDef<T> {
     pub fn new(name: &str, inputs: Vec<&str>, outputs: Vec<&str>, parts: Vec<T>) -> Self {
         Self {
             name: name.to_string(),
@@ -35,6 +35,22 @@ impl<T> ChipDef<T> {
             parts,
         }
     }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn inputs(&self) -> Vec<String> {
+        self.inputs.clone()
+    }
+
+    pub fn outputs(&self) -> Vec<String> {
+        self.outputs.clone()
+    }
+
+    pub fn parts(&self) -> Vec<T> {
+        self.parts.clone()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -56,6 +72,14 @@ impl ComponentMap {
 
     pub fn new_string(var_map: Vec<(String, String)>, name: String) -> Self {
         Self { var_map, name }
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn var_map(&self) -> Vec<(String, String)> {
+        self.var_map.clone()
     }
 }
 
@@ -103,5 +127,17 @@ impl ComponentDef {
                 .collect(),
             name: name.to_string(),
         }
+    }
+
+    pub fn inputs(&self) -> Vec<(String, String)> {
+        self.inputs.clone()
+    }
+
+    pub fn ouputs(&self) -> Vec<(String, String)> {
+        self.ouputs.clone()
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 }

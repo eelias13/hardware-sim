@@ -1,4 +1,5 @@
-// use crate::{Component, Error};
+use std::collections::HashMap;
+
 use crate::Error;
 use bool_algebra::bool_to_u32;
 
@@ -8,6 +9,8 @@ pub struct LookupTable {
     in_values: Vec<bool>,
     in_names: Vec<String>,
     out_names: Vec<String>,
+    in_map: HashMap<String, usize>,
+    out_map: HashMap<String, usize>,
     name: String,
 }
 
@@ -45,17 +48,46 @@ impl LookupTable {
             .collect();
         let name = name.to_string();
 
+        let mut in_map = HashMap::new();
+        let mut out_map = HashMap::new();
+
+        for (i, input) in in_names.iter().enumerate() {
+            in_map.insert(input.clone(), i);
+        }
+
+        for (i, output) in out_names.iter().enumerate() {
+            out_map.insert(output.clone(), i);
+        }
+
         Ok(Self {
             table,
             in_values: vec![false; in_names.len()],
             in_names,
             out_names,
             name,
+            in_map,
+            out_map,
         })
     }
 
     pub fn get_table(&self) -> Vec<Vec<bool>> {
         self.table.clone()
+    }
+
+    pub fn in_map(&self, name: String) -> Option<usize> {
+        if let Some(value) = self.in_map.get(&name) {
+            Some(value.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn out_map(&self, name: String) -> Option<usize> {
+        if let Some(value) = self.out_map.get(&name) {
+            Some(value.clone())
+        } else {
+            None
+        }
     }
 
     pub fn outputs(&self) -> Vec<bool> {
@@ -72,7 +104,25 @@ impl LookupTable {
         self.name.clone()
     }
 
-    pub fn set(&mut self, in_id: usize, value: bool) -> Result<(), Error> {
+    pub fn set(&mut self, in_name: &str, value: bool) -> Result<(), Error> {
+        if let Some(index) = self.in_map.get(in_name) {
+            self.in_values[index.clone()] = value;
+            Ok(())
+        } else {
+            Err(Error::msg(format!("name {} not found", in_name)))
+        }
+    }
+
+    pub fn get(&mut self, out_name: &str) -> Result<bool, Error> {
+        let index = bool_to_u32(self.in_values.clone()) as usize;
+        if let Some(out_id) = self.out_map.get(out_name) {
+            Ok(self.table[out_id.clone()][index])
+        } else {
+            Err(Error::msg(format!("name {} not found", out_name)))
+        }
+    }
+
+    pub fn set_id(&mut self, in_id: usize, value: bool) -> Result<(), Error> {
         if in_id > self.in_values.len() - 1 {
             Err(Error::msg(format!(
                 "in_id dose not exist max {} input {}",
@@ -85,7 +135,7 @@ impl LookupTable {
         }
     }
 
-    pub fn get(&mut self, out_id: usize) -> Result<bool, Error> {
+    pub fn get_id(&mut self, out_id: usize) -> Result<bool, Error> {
         let index = bool_to_u32(self.in_values.clone()) as usize;
         if out_id > self.out_names.len() - 1 {
             Err(Error::msg(format!(
