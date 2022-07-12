@@ -138,11 +138,19 @@ impl LookupTable {
         }
     }
 
-    // pub fn in_names(&self) -> Vec<String> {
-    //     self.in_map.()
-    // }
-    //
-    // pub fn out_names(&self) -> Vec<String> {
-    //     self.out_names.clone()
-    // }
+    pub fn in_names(&self) -> Vec<String> {
+        let mut names = Vec::new();
+        for name in self.in_map.keys() {
+            names.push(name.clone());
+        }
+        names
+    }
+
+    pub fn out_names(&self) -> Vec<String> {
+        let mut names = Vec::new();
+        for name in self.out_map.keys() {
+            names.push(name.clone());
+        }
+        names
+    }
 }

@@ -22,8 +22,12 @@ struct Connection {
 }
 
 impl Connection {
-    fn new(from: usize, to: usize, weight: usize) -> Self {
-        Self { weight, from, to }
+    fn new(from: usize, to: usize) -> Self {
+        Self {
+            weight: 1,
+            from,
+            to,
+        }
     }
 }
 
@@ -49,46 +53,56 @@ impl Circuit {
         lut_map: HashMap<String, LookupTable>,
     ) -> Result<Self, Error> {
         let mut circuit = Self::blank(chip_def.name());
+        // maps lut name with the corisponding node id in the circuit graph
         let mut ids = HashMap::new();
+        // maps the internal connection name the the corisponding (lut id, port id)
+        let mut in_ports = HashMap::new();
+
+        // let mut out_ports = Vec::new();
 
         for input in chip_def.inputs() {
-            ids.insert(
-                input.clone(),
-                circuit.add_node(Component::In(InOut::new(input)))?,
-            );
+            let lut_id = circuit.add_node(Component::In(InOut::new(input.clone())))?;
+            ids.insert(input.clone(), lut_id);
+            in_ports.insert(input.clone(), (lut_id, 0));
         }
 
         for output in chip_def.outputs() {
-            ids.insert(
-                output.clone(),
-                circuit.add_node(Component::Out(InOut::new(output)))?,
-            );
+            let lut_id = circuit.add_node(Component::Out(InOut::new(output.clone())))?;
+            ids.insert(output.clone(), lut_id);
+            in_ports.insert(output.clone(), (lut_id, 0));
         }
 
+        // initilse in_ports and add lut as nodes
         for part in chip_def.parts() {
             if let Some(lut) = lut_map.get(&part.name()) {
-                ids.insert(part.name(), circuit.add_node(Component::Lut(lut.clone()))?);
+                let lut_id = circuit.add_node(Component::Lut(lut.clone()))?;
+                ids.insert(part.name(), lut_id);
+                if part.inputs().len() != lut.in_names().len() {
+                    return Err(Error::msg("wrong size".to_string()));
+                }
 
                 for (i, o) in part.inputs() {
-                    if let Some(i_id) = lut.in_map(i.clone()) {
-                        if let Some(&o_id) = ids.get(&o).clone() {
-                            circuit.add_connection(i_id, o_id, Connection::new(i_id, o_id, 1))?;
-                            todo!();
-                        } else {
-                        }
-                    } else {
-                        return Err(Error::msg(format!(
-                            "on table {} no input named {}",
-                            lut.name(),
-                            i
-                        )));
-                    }
+                    in_ports.insert(o, (lut_id, lut.in_map(i).unwrap()));
                 }
             } else {
                 return Err(Error::msg(format!(
                     "no lookup table found with name {}",
                     part.name()
                 )));
+            }
+        }
+
+        // create conections
+        for part in chip_def.parts() {
+            for (i, o) in part.ouputs() {
+                let from_lut_id = circuit.lut_name(part.name())?;
+                let from_port = circuit.lut_id(from_lut_id)?.out_map(i).unwrap();
+                let (to_lut_id, to_port) = in_ports.get(&o).unwrap().clone();
+                circuit.add_connection(
+                    from_lut_id,
+                    to_lut_id,
+                    Connection::new(from_port, to_port),
+                )?;
             }
         }
 
@@ -194,6 +208,25 @@ impl Circuit {
         }
     }
 
+    fn lut_name(&self, name: String) -> Result<usize, Error> {
+        for (id, node) in self.graph.nodes().into_iter().enumerate() {
+            if let Component::Lut(lut) = node {
+                if lut.name() == name {
+                    return Ok(id);
+                }
+            }
+        }
+        Err(Error::msg(format!("lut {} not found", name)))
+    }
+
+    fn lut_id(&self, node_id: usize) -> Result<LookupTable, Error> {
+        if let Ok(Component::Lut(lut)) = self.graph.node(node_id) {
+            Ok(lut)
+        } else {
+            Err(Error::msg(format!("lut {} not found", node_id)))
+        }
+    }
+
     fn add_connection(&mut self, from: usize, to: usize, edge: Connection) -> Result<(), Error> {
         match self.graph.add_edge(from, to, edge) {
             Ok(()) => Ok(()),
@@ -269,17 +302,17 @@ fn ram() {
         .add_node(Component::In(InOut::new("reset".to_string())))
         .unwrap();
 
-    ram.add_connection(res_id, not_id, Connection::new(0, 0, 1))
+    ram.add_connection(res_id, not_id, Connection::new(0, 0))
         .unwrap();
-    ram.add_connection(not_id, and_id, Connection::new(0, 0, 1))
+    ram.add_connection(not_id, and_id, Connection::new(0, 0))
         .unwrap();
-    ram.add_connection(and_id, out_id, Connection::new(0, 0, 1))
+    ram.add_connection(and_id, out_id, Connection::new(0, 0))
         .unwrap();
-    ram.add_connection(in_id, or_id, Connection::new(0, 1, 1))
+    ram.add_connection(in_id, or_id, Connection::new(0, 1))
         .unwrap();
-    ram.add_connection(or_id, and_id, Connection::new(0, 1, 1))
+    ram.add_connection(or_id, and_id, Connection::new(0, 1))
         .unwrap();
-    ram.add_connection(and_id, or_id, Connection::new(0, 0, 1))
+    ram.add_connection(and_id, or_id, Connection::new(0, 0))
         .unwrap();
 
     assert_eq!(ram.get_id(out_id), Ok(false));
@@ -327,16 +360,16 @@ fn clock() {
         .unwrap();
 
     clock
-        .add_connection(in_id, or_id, Connection::new(0, 1, 1))
+        .add_connection(in_id, or_id, Connection::new(0, 1))
         .unwrap();
     clock
-        .add_connection(or_id, not_id, Connection::new(0, 0, 1))
+        .add_connection(or_id, not_id, Connection::new(0, 0))
         .unwrap();
     clock
-        .add_connection(not_id, out_id, Connection::new(0, 0, 1))
+        .add_connection(not_id, out_id, Connection::new(0, 0))
         .unwrap();
     clock
-        .add_connection(not_id, or_id, Connection::new(0, 0, 1))
+        .add_connection(not_id, or_id, Connection::new(0, 0))
         .unwrap();
 
     assert_eq!(clock.get_id(out_id), Ok(false));
