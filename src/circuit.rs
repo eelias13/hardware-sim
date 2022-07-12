@@ -58,12 +58,9 @@ impl Circuit {
         // maps the internal connection name the the corisponding (lut id, port id)
         let mut in_ports = HashMap::new();
 
-        // let mut out_ports = Vec::new();
-
         for input in chip_def.inputs() {
             let lut_id = circuit.add_node(Component::In(InOut::new(input.clone())))?;
             ids.insert(input.clone(), lut_id);
-            in_ports.insert(input.clone(), (lut_id, 0));
         }
 
         for output in chip_def.outputs() {
@@ -103,6 +100,14 @@ impl Circuit {
                     to_lut_id,
                     Connection::new(from_port, to_port),
                 )?;
+            }
+        }
+
+        // connecting io inputs to lut
+        for input in chip_def.inputs() {
+            if let Some(&in_id) = ids.get(&input).clone() {
+                let (to_lut_id, to_port) = in_ports.get(&input).unwrap().clone();
+                circuit.add_connection(in_id, to_lut_id, Connection::new(0, to_port))?;
             }
         }
 
@@ -373,18 +378,80 @@ fn clock() {
         .unwrap();
 
     assert_eq!(clock.get_id(out_id), Ok(false));
+    assert_eq!(clock.get("output"), Ok(false));
     clock.tick().unwrap();
+    assert_eq!(clock.get("output"), Ok(true));
     assert_eq!(clock.get_id(out_id), Ok(true));
     clock.tick().unwrap();
+    assert_eq!(clock.get("output"), Ok(false));
     assert_eq!(clock.get_id(out_id), Ok(false));
     clock.tick().unwrap();
+    assert_eq!(clock.get("output"), Ok(true));
     assert_eq!(clock.get_id(out_id), Ok(true));
     clock.tick().unwrap();
+    assert_eq!(clock.get("output"), Ok(false));
     assert_eq!(clock.get_id(out_id), Ok(false));
     clock.tick().unwrap();
+    assert_eq!(clock.get("output"), Ok(true));
     assert_eq!(clock.get_id(out_id), Ok(true));
     clock.tick().unwrap();
+    assert_eq!(clock.get("output"), Ok(false));
     assert_eq!(clock.get_id(out_id), Ok(false));
     clock.tick().unwrap();
+    assert_eq!(clock.get("output"), Ok(true));
     assert_eq!(clock.get_id(out_id), Ok(true));
+}
+
+#[test]
+fn and_graph() {
+    let lut = LookupTable::new(
+        vec![vec![false, false, false, true]],
+        vec!["a", "b"],
+        vec!["out"],
+        "And",
+    )
+    .unwrap();
+
+    let def = ChipDef::new(
+        "And",
+        vec!["a", "b"],
+        vec!["out"],
+        vec![ComponentDef::new(
+            vec![("a", "a"), ("b", "b")],
+            vec![("out", "out")],
+            "And",
+        )],
+    );
+
+    let mut map = HashMap::new();
+    map.insert("And".to_string(), lut.clone());
+
+    let circuit_from_def = Circuit::new(def, map).unwrap();
+
+    let mut circuit = Circuit::blank("And".to_string());
+    let in1 = circuit
+        .add_node(Component::In(InOut::new("".to_string())))
+        .unwrap();
+    let in2 = circuit
+        .add_node(Component::In(InOut::new("".to_string())))
+        .unwrap();
+    let output = circuit
+        .add_node(Component::Out(InOut::new("out".to_string())))
+        .unwrap();
+    let lut = circuit.add_node(Component::Lut(lut)).unwrap();
+
+    circuit
+        .add_connection(in1, lut, Connection::new(0, 0))
+        .unwrap();
+    circuit
+        .add_connection(in2, lut, Connection::new(0, 1))
+        .unwrap();
+    circuit
+        .add_connection(lut, output, Connection::new(0, 0))
+        .unwrap();
+
+    assert_eq!(
+        circuit.graph.edge_list(),
+        circuit_from_def.graph.edge_list()
+    );
 }
