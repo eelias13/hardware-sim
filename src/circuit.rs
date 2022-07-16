@@ -66,7 +66,7 @@ impl Circuit {
         for output in chip_def.outputs() {
             let lut_id = circuit.add_node(Component::Out(InOut::new(output.clone())))?;
             ids.insert(output.clone(), lut_id);
-            in_ports.insert(output.clone(), (lut_id, 0));
+            in_ports.insert(output.clone(), vec![(lut_id, 0)]);
         }
 
         // initilse in_ports and add lut as nodes
@@ -79,7 +79,11 @@ impl Circuit {
                 }
 
                 for (i, o) in part.inputs() {
-                    in_ports.insert(o, (lut_id, lut.in_map(i).unwrap()));
+                    if let Some(v) = in_ports.get_mut(&o) {
+                        v.push((lut_id, lut.in_map(i).unwrap()));
+                    } else {
+                        in_ports.insert(o, vec![(lut_id, lut.in_map(i).unwrap())]);
+                    }
                 }
             } else {
                 return Err(Error::msg(format!(
@@ -94,20 +98,22 @@ impl Circuit {
             for (i, o) in part.ouputs() {
                 let from_lut_id = circuit.lut_name(part.name())?;
                 let from_port = circuit.lut_id(from_lut_id)?.out_map(i).unwrap();
-                let (to_lut_id, to_port) = in_ports.get(&o).unwrap().clone();
-                circuit.add_connection(
-                    from_lut_id,
-                    to_lut_id,
-                    Connection::new(from_port, to_port),
-                )?;
+                for (to_lut_id, to_port) in in_ports.get(&o).unwrap().clone() {
+                    circuit.add_connection(
+                        from_lut_id,
+                        to_lut_id,
+                        Connection::new(from_port, to_port),
+                    )?;
+                }
             }
         }
 
         // connecting io inputs to lut
         for input in chip_def.inputs() {
             if let Some(&in_id) = ids.get(&input).clone() {
-                let (to_lut_id, to_port) = in_ports.get(&input).unwrap().clone();
-                circuit.add_connection(in_id, to_lut_id, Connection::new(0, to_port))?;
+                for (to_lut_id, to_port) in in_ports.get(&input).unwrap().clone() {
+                    circuit.add_connection(in_id, to_lut_id, Connection::new(0, to_port))?;
+                }
             }
         }
 
@@ -449,6 +455,64 @@ fn and_graph() {
     circuit
         .add_connection(lut, output, Connection::new(0, 0))
         .unwrap();
+
+    assert_eq!(
+        circuit.graph.edge_list(),
+        circuit_from_def.graph.edge_list()
+    );
+}
+
+#[test]
+fn not() {
+    let lut = LookupTable::new(
+        vec![vec![true, true, true, false]],
+        vec!["a", "b"],
+        vec!["out"],
+        "Nand",
+    )
+    .unwrap();
+
+    let mut lut_map = HashMap::new();
+    lut_map.insert("Nand".to_string(), lut.clone());
+
+    let def = ChipDef::new(
+        "Not",
+        vec!["input"],
+        vec!["output"],
+        vec![ComponentDef::new(
+            vec![("a", "input"), ("b", "input")],
+            vec![("out", "output")],
+            "Nand",
+        )],
+    );
+
+    let mut circuit_from_def = Circuit::new(def, lut_map).unwrap();
+
+    let mut circuit = Circuit::blank("Not".to_string());
+    let input = circuit
+        .add_node(Component::In(InOut::new("input".to_string())))
+        .unwrap();
+    let output = circuit
+        .add_node(Component::Out(InOut::new("output".to_string())))
+        .unwrap();
+    let lut = circuit.add_node(Component::Lut(lut)).unwrap();
+
+    circuit
+        .add_connection(input, lut, Connection::new(0, 0))
+        .unwrap();
+    circuit
+        .add_connection(input, lut, Connection::new(0, 1))
+        .unwrap();
+    circuit
+        .add_connection(lut, output, Connection::new(0, 0))
+        .unwrap();
+
+    assert_eq!(circuit.tick(), Ok(()));
+    assert_eq!(circuit.get("output"), Ok(true));
+
+    assert_eq!(circuit.set("input", true), Ok(()));
+    assert_eq!(circuit.tick(), Ok(()));
+    assert_eq!(circuit.get("output"), Ok(false));
 
     assert_eq!(
         circuit.graph.edge_list(),

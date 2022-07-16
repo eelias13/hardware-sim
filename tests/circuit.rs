@@ -59,28 +59,23 @@ fn not_from_nand() {
 
     let def = ChipDef::new(
         "Not",
-        vec!["in"],
-        vec!["out"],
+        vec!["input"],
+        vec!["output"],
         vec![ComponentDef::new(
-            vec![("a", "in"), ("b", "in")],
-            vec![("out", "out")],
+            vec![("a", "input"), ("b", "input")],
+            vec![("out", "output")],
             "Nand",
         )],
     );
 
     let mut circuit = Circuit::new(def, lut_map).unwrap();
 
-    assert_eq!(circuit.get("out"), Ok(false));
     assert_eq!(circuit.tick(), Ok(()));
-    assert_eq!(circuit.get("out"), Ok(true));
-    assert_eq!(circuit.tick(), Ok(()));
-    assert_eq!(circuit.get("out"), Ok(true));
+    assert_eq!(circuit.get("output"), Ok(true));
 
-    assert_eq!(circuit.set("in", false), Ok(()));
+    assert_eq!(circuit.set("input", true), Ok(()));
     assert_eq!(circuit.tick(), Ok(()));
-    assert_eq!(circuit.get("out"), Ok(true));
-    assert_eq!(circuit.tick(), Ok(()));
-    assert_eq!(circuit.get("out"), Ok(true));
+    assert_eq!(circuit.get("output"), Ok(false));
 }
 
 #[test]
