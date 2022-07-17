@@ -64,16 +64,16 @@ impl LookupTable {
         self.table.clone()
     }
 
-    pub fn in_map(&self, name: String) -> Option<usize> {
-        if let Some(value) = self.in_map.get(&name) {
+    pub fn in_map(&self, name: &String) -> Option<usize> {
+        if let Some(value) = self.in_map.get(name) {
             Some(value.clone())
         } else {
             None
         }
     }
 
-    pub fn out_map(&self, name: String) -> Option<usize> {
-        if let Some(value) = self.out_map.get(&name) {
+    pub fn out_map(&self, name: &String) -> Option<usize> {
+        if let Some(value) = self.out_map.get(name) {
             Some(value.clone())
         } else {
             None

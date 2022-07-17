@@ -1,4 +1,4 @@
-use hardware_sim::{ChipDef, Circuit, ComponentDef, LookupTable};
+use hardware_sim::{ChipDef, Circuit, LookupTable};
 use std::collections::HashMap;
 
 #[test]
@@ -18,11 +18,7 @@ fn nand() {
         "Nand",
         vec!["a", "b"],
         vec!["out"],
-        vec![ComponentDef::new(
-            vec![("a", "a"), ("b", "b")],
-            vec![("out", "out")],
-            "Nand",
-        )],
+        vec![(vec![("a", "a"), ("b", "b")], vec![("out", "out")], "Nand")],
     );
 
     let mut circuit = Circuit::new(def, lut_map).unwrap();
@@ -61,7 +57,7 @@ fn not_from_nand() {
         "Not",
         vec!["input"],
         vec!["output"],
-        vec![ComponentDef::new(
+        vec![(
             vec![("a", "input"), ("b", "input")],
             vec![("out", "output")],
             "Nand",
@@ -96,27 +92,27 @@ fn and_from_nand() {
         vec!["a", "b"],
         vec!["out"],
         vec![
-            ComponentDef::new(vec![("a", "a"), ("b", "b")], vec![("out", "nand")], "Nand"),
-            ComponentDef::new(
+            (
                 vec![("a", "nand"), ("b", "nand")],
                 vec![("out", "out")],
                 "Nand",
             ),
+            (vec![("a", "a"), ("b", "b")], vec![("out", "nand")], "Nand"),
         ],
     );
 
     let mut circuit = Circuit::new(def, lut_map).unwrap();
 
-    // assert_eq!(circuit.tick(), Ok(()));
-    // assert_eq!(circuit.tick(), Ok(()));
-    // assert_eq!(circuit.get("out"), Ok(false));
-    // assert_eq!(circuit.set("a", true), Ok(()));
-    // and.tick().unwrap();
-    // assert_eq!(and.get("out"), Ok(false));
-    // assert_eq!(and.set("b", true), Ok(()));
-    // and.tick().unwrap();
-    // assert_eq!(and.get("out"), Ok(true));
-    // assert_eq!(and.set("a", false), Ok(()));
-    // and.tick().unwrap();
-    // assert_eq!(and.get("out"), Ok(false));
+    assert_eq!(circuit.tick(), Ok(()));
+    assert_eq!(circuit.tick(), Ok(()));
+    assert_eq!(circuit.get("out"), Ok(false));
+    assert_eq!(circuit.set("a", true), Ok(()));
+    assert_eq!(circuit.tick(), Ok(()));
+    assert_eq!(circuit.get("out"), Ok(false));
+    assert_eq!(circuit.set("b", true), Ok(()));
+    assert_eq!(circuit.tick(), Ok(()));
+    assert_eq!(circuit.get("out"), Ok(true));
+    assert_eq!(circuit.set("a", false), Ok(()));
+    assert_eq!(circuit.tick(), Ok(()));
+    assert_eq!(circuit.get("out"), Ok(false));
 }

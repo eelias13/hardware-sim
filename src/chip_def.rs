@@ -1,24 +1,36 @@
 #[derive(Debug, Clone, PartialEq)]
-pub struct ChipDef<T> {
+pub struct ChipDef {
     name: String,
     inputs: Vec<String>,
     outputs: Vec<String>,
-    parts: Vec<T>,
+    parts: Vec<Component>,
 }
 
-impl<T: Clone> ChipDef<T> {
-    pub fn new(name: &str, inputs: Vec<&str>, outputs: Vec<&str>, parts: Vec<T>) -> Self {
+impl ChipDef {
+    pub fn new(
+        name: &str,
+        inputs: Vec<&str>,
+        outputs: Vec<&str>,
+        parts: Vec<(Vec<(&str, &str)>, Vec<(&str, &str)>, &str)>,
+    ) -> Self {
         Self {
             name: name.to_string(),
-            inputs: inputs
+            inputs: inputs.iter().map(|&s| s.to_string()).collect(),
+            outputs: outputs.iter().map(|&s| s.to_string()).collect(),
+            parts: parts
                 .iter()
-                .map(|&s| -> String { s.to_string() })
+                .map(|(inputs, outputs, name)| Component::Def {
+                    inputs: inputs
+                        .iter()
+                        .map(|(s1, s2)| (s1.to_string(), s2.to_string()))
+                        .collect(),
+                    outputs: outputs
+                        .iter()
+                        .map(|(s1, s2)| (s1.to_string(), s2.to_string()))
+                        .collect(),
+                    name: name.to_string(),
+                })
                 .collect(),
-            outputs: outputs
-                .iter()
-                .map(|&s| -> String { s.to_string() })
-                .collect(),
-            parts,
         }
     }
 
@@ -26,7 +38,7 @@ impl<T: Clone> ChipDef<T> {
         name: String,
         inputs: Vec<String>,
         outputs: Vec<String>,
-        parts: Vec<T>,
+        parts: Vec<Component>,
     ) -> Self {
         Self {
             name,
@@ -48,96 +60,47 @@ impl<T: Clone> ChipDef<T> {
         self.outputs.clone()
     }
 
-    pub fn parts(&self) -> Vec<T> {
+    pub fn parts(&self) -> Vec<Component> {
         self.parts.clone()
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ComponentMap {
-    var_map: Vec<(String, String)>,
-    name: String,
+pub enum Component {
+    Map {
+        var_map: Vec<(String, String)>,
+        name: String,
+    },
+
+    IO {
+        inputs: Vec<String>,
+        outputs: Vec<String>,
+        name: String,
+    },
+
+    Def {
+        inputs: Vec<(String, String)>,
+        outputs: Vec<(String, String)>,
+        name: String,
+    },
 }
 
-impl ComponentMap {
-    pub fn new(var_map: Vec<(&str, &str)>, name: &str) -> Self {
-        Self {
-            var_map: var_map
-                .iter()
-                .map(|&(s1, s2)| -> (String, String) { (s1.to_string(), s2.to_string()) })
-                .collect(),
-            name: name.to_string(),
-        }
-    }
-
-    pub fn new_string(var_map: Vec<(String, String)>, name: String) -> Self {
-        Self { var_map, name }
-    }
-
+impl Component {
     pub fn name(&self) -> String {
-        self.name.clone()
-    }
+        match self {
+            Self::Map { var_map: _, name } => name.clone(),
 
-    pub fn var_map(&self) -> Vec<(String, String)> {
-        self.var_map.clone()
-    }
-}
+            Self::IO {
+                inputs: _,
+                outputs: _,
+                name,
+            } => name.clone(),
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ComponentIO {
-    inputs: Vec<String>,
-    ouputs: Vec<String>,
-    name: String,
-}
-
-impl ComponentIO {
-    pub fn new(inputs: Vec<&str>, ouputs: Vec<&str>, name: &str) -> Self {
-        Self {
-            inputs: inputs
-                .iter()
-                .map(|&s| -> String { s.to_string() })
-                .collect(),
-            ouputs: ouputs
-                .iter()
-                .map(|&s| -> String { s.to_string() })
-                .collect(),
-            name: name.to_string(),
+            Self::Def {
+                inputs: _,
+                outputs: _,
+                name,
+            } => name.clone(),
         }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ComponentDef {
-    inputs: Vec<(String, String)>,
-    ouputs: Vec<(String, String)>,
-    name: String,
-}
-
-impl ComponentDef {
-    pub fn new(inputs: Vec<(&str, &str)>, ouputs: Vec<(&str, &str)>, name: &str) -> Self {
-        Self {
-            inputs: inputs
-                .iter()
-                .map(|&(s1, s2)| -> (String, String) { (s1.to_string(), s2.to_string()) })
-                .collect(),
-
-            ouputs: ouputs
-                .iter()
-                .map(|&(s1, s2)| -> (String, String) { (s1.to_string(), s2.to_string()) })
-                .collect(),
-            name: name.to_string(),
-        }
-    }
-
-    pub fn inputs(&self) -> Vec<(String, String)> {
-        self.inputs.clone()
-    }
-
-    pub fn ouputs(&self) -> Vec<(String, String)> {
-        self.ouputs.clone()
-    }
-
-    pub fn name(&self) -> String {
-        self.name.clone()
     }
 }

@@ -2,7 +2,7 @@ mod chip_def;
 mod circuit;
 mod lookup_tabel;
 
-pub use chip_def::{ChipDef, ComponentDef, ComponentIO, ComponentMap};
+pub use chip_def::{ChipDef, Component};
 pub use circuit::Circuit;
 pub use lookup_tabel::LookupTable;
 
